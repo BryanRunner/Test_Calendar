@@ -1,59 +1,70 @@
-# NOTE this module is a bit sloppy, could use some DRYing up and refactoring.
-# also should return Date objects if it were ever to be used in a real application
 module Payroll
-  PAYDAYS = [6,21]
-  PROCESSING = { first_pay_period: [1, 2], second_pay_period: [16, 17] }
+  PAYDAYS        = [6, 21]
+  PAY_PERIOD_ONE = [1, 15]
+  PAY_PERIOD_TWO = [16,-1]
 
   def paydays(numbers=PAYDAYS)
     numbers.map do |payday_number|
       payday = Date.new(@date.year, @date.month, payday_number)
-
-      if payday.saturday?
-        (payday - 1).strftime("%A %b %-d %Y")
-      elsif payday.sunday?
-        (payday - 2).strftime("%A %b %-d %Y")
-      else
-        payday.strftime("%A %b %-d %Y")
-      end
-
+      payday - 1 if payday.saturday?
+      payday - 2 if payday.sunday?
+      payday
     end
   end
 
-  def process_days(processing=PROCESSING)
-    processing.map do |key, value|
-      first = Date.new(@date.year, @date.month, value[0])
-      second = Date.new(@date.year, @date.month, value[1])
-
-      if first.friday?
-        second+= 2
-      elsif first.saturday?
-        first+= 2
-        second+= 2
-      elsif first.sunday?
-        first+= 1
-        second+= 1
-      end
-      value = [first, second]
-      {key => value}
+  def pay_periods(one=PAY_PERIOD_ONE, two=PAY_PERIOD_TWO)
+    args = method(__method__).parameters.map { |_, arg| binding.local_variable_get(arg) }
+    args.map do |arg|
+      to_date_obj(arg)
     end
   end
 
-  def timesheet_due_dates(processing=PROCESSING)
-    first = Date.new(@date.year, @date.month, processing[:second_pay_period][0])
-    second = Date.new(@date.year, @date.month, -1)
-
-    days = [first, second]
-    days.map! do |day|
-      if day.saturday?
-        day-= 1
-      elsif day.sunday?
-        day-= 2
-      elsif day == days[0] && day.monday?
-        day-= 3
-      end
-      day.strftime("%A %b %-d %Y")
+  def processing_days
+    processing_days = []
+    pay_periods.each do |pay_period|
+      day_one = pay_period[1] + 1
+      day_two = pay_period[1] + 2
+      days    = [day_one, day_two]
+      processing_days.push(days)
     end
+    processing_days.map do |days|
+      add_until_weekdays(days)
+    end
+  end
+
+  def timesheet_due_dates
+    first = Date.new(@date.year, @date.month, PAY_PERIOD_ONE[1])
+    last  = Date.new(@date.year, @date.month, PAY_PERIOD_TWO[1])
+    dates = [first, last]
+    subtract_until_weekdays(dates)
+  end
+
+  private
+
+  def to_date_obj(days)
+    days.map do |day|
+      Date.new(@date.year, @date.month, day)
+    end
+  end
+
+  def add_until_weekdays(days)
+    add_to_second = 2 if days[0].friday?
+    add_to_both   = 2 if days[0].saturday?
+    add_to_both   = 1 if days[0].sunday?
+    days[1]      += add_to_second if add_to_second
+
+    days.map {|day| day+= add_to_both} if add_to_both
     days
+  end
+
+  def subtract_until_weekdays(days)
+    days.map do |day|
+      num = 1 if day.saturday?
+      num = 2 if day.sunday?
+      num = 3 if day == days[0] && day.monday?
+      day-= num if num
+      day
+    end
   end
 
 end
