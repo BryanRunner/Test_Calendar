@@ -48,12 +48,12 @@ module Payroll
   end
 
   def add_until_weekdays(days)
-    add_to_second = 2 if days[0].friday?
+    add_to_last   = 2 if days[0].friday?
     add_to_both   = 2 if days[0].saturday?
     add_to_both   = 1 if days[0].sunday?
-    days[1]      += add_to_second if add_to_second
+    days[1]      += add_to_last if add_to_last
 
-    days.map {|day| day+= add_to_both} if add_to_both
+    days.map! {|day| day += add_to_both} if add_to_both
     days
   end
 
